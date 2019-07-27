@@ -75,11 +75,12 @@ Return<void> WakeLock::release() {
 void WakeLock::releaseOnce() {
     std::call_once(mReleased, [this]() {
         mSystemSuspend->decSuspendCounter(mName);
-        mSystemSuspend->updateWakeLockStatOnRelease(mName, mPid, getEpochTimeNow());
+        mSystemSuspend->updateWakeLockStatOnRelease(mName, mPid, getTimeNow());
     });
 }
 
-SystemSuspend::SystemSuspend(unique_fd wakeupCountFd, unique_fd stateFd, size_t maxStatsEntries,
+SystemSuspend::SystemSuspend(unique_fd wakeupCountFd, unique_fd stateFd,
+                             size_t maxNativeStatsEntries, unique_fd kernelWakelockStatsFd,
                              std::chrono::milliseconds baseSleepTime,
                              const sp<SuspendControlService>& controlService,
                              bool useSuspendCounter)
@@ -89,7 +90,7 @@ SystemSuspend::SystemSuspend(unique_fd wakeupCountFd, unique_fd stateFd, size_t 
       mBaseSleepTime(baseSleepTime),
       mSleepTime(baseSleepTime),
       mControlService(controlService),
-      mStatsList(maxStatsEntries),
+      mStatsList(maxNativeStatsEntries, std::move(kernelWakelockStatsFd)),
       mUseSuspendCounter(useSuspendCounter),
       mWakeLockFd(-1),
       mWakeUnlockFd(-1) {
@@ -138,7 +139,7 @@ bool SystemSuspend::forceSuspend() {
 Return<sp<IWakeLock>> SystemSuspend::acquireWakeLock(WakeLockType /* type */,
                                                      const hidl_string& name) {
     auto pid = getCallingPid();
-    auto timeNow = getEpochTimeNow();
+    auto timeNow = getTimeNow();
     IWakeLock* wl = new WakeLock{this, name, pid};
     mStatsList.updateOnAcquire(name, pid, timeNow);
     return wl;
@@ -216,8 +217,8 @@ void SystemSuspend::updateSleepTime(bool success) {
 }
 
 void SystemSuspend::updateWakeLockStatOnRelease(const std::string& name, int pid,
-                                                TimestampType epochTimeNow) {
-    mStatsList.updateOnRelease(name, pid, epochTimeNow);
+                                                TimestampType timeNow) {
+    mStatsList.updateOnRelease(name, pid, timeNow);
 }
 
 const WakeLockEntryList& SystemSuspend::getStatsList() const {
