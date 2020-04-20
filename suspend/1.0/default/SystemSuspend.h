@@ -112,6 +112,7 @@ class SystemSuspend : public RefBase {
     void checkAutosuspendClientsLivenessLocked()
         EXCLUSIVE_LOCKS_REQUIRED(mAutosuspendClientTokensLock);
     bool hasAliveAutosuspendTokenLocked() EXCLUSIVE_LOCKS_REQUIRED(mAutosuspendClientTokensLock);
+    const std::string &getSleepState();
 
     std::condition_variable mAutosuspendCondVar GUARDED_BY(mAutosuspendLock);
     uint32_t mSuspendCounter GUARDED_BY(mAutosuspendLock);
@@ -122,6 +123,7 @@ class SystemSuspend : public RefBase {
 
     unique_fd mWakeupCountFd;
     unique_fd mStateFd;
+    std::string mSleepState;
 
     unique_fd mSuspendStatsFd;
     unique_fd mSuspendTimeFd;
