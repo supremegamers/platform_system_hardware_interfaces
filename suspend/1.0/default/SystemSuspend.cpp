@@ -20,6 +20,7 @@
 #include <aidl/android/system/suspend/IWakeLock.h>
 #include <android-base/file.h>
 #include <android-base/logging.h>
+#include <android-base/properties.h>
 #include <android-base/stringprintf.h>
 #include <android-base/strings.h>
 #include <android/binder_manager.h>
@@ -36,6 +37,7 @@ using ::aidl::android::system::suspend::ISystemSuspend;
 using ::aidl::android::system::suspend::IWakeLock;
 using ::aidl::android::system::suspend::WakeLockType;
 using ::android::base::Error;
+using ::android::base::GetProperty;
 using ::android::base::ReadFdToString;
 using ::android::base::WriteStringToFd;
 using ::std::string;
@@ -228,7 +230,7 @@ bool SystemSuspend::forceSuspend() {
     //  returns from suspend, the wakelocks and SuspendCounter will not have
     //  changed.
     auto autosuspendLock = std::unique_lock(mAutosuspendLock);
-    bool success = WriteStringToFd(kSleepState, mStateFd);
+    bool success = WriteStringToFd(getSleepState(), mStateFd);
     autosuspendLock.unlock();
 
     if (!success) {
@@ -350,7 +352,7 @@ void SystemSuspend::initAutosuspendLocked() {
                     PLOG(VERBOSE) << "error writing to /sys/power/wakeup_count";
                     continue;
                 }
-                success = WriteStringToFd(kSleepState, mStateFd);
+                success = WriteStringToFd(getSleepState(), mStateFd);
                 shouldSleep = true;
 
                 autosuspendLock.unlock();
@@ -381,6 +383,25 @@ void SystemSuspend::initAutosuspendLocked() {
     autosuspendThread.detach();
     mAutosuspendThreadCreated = true;
     LOG(INFO) << "automatic system suspend enabled";
+}
+
+const string &SystemSuspend::getSleepState() {
+    if (mSleepState.empty()) {
+        mSleepState = GetProperty("sleep.state", "");
+        if (!mSleepState.empty()) {
+            LOG(INFO) << "autosuspend using sleep.state property " << mSleepState;
+        } else {
+            string buf = readFd(mStateFd);
+            if (buf.find(kSleepState) != std::string::npos) {
+                mSleepState = kSleepState;
+                LOG(INFO) << "autosuspend using default sleep_state " << mSleepState;
+            } else {
+                mSleepState = "freeze";
+                LOG(WARNING) << "autosuspend using fallback state " << mSleepState;
+            }
+        }
+    }
+    return mSleepState;
 }
 
 /**
