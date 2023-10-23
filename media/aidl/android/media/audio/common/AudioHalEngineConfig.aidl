@@ -28,8 +28,6 @@ import android.media.audio.common.AudioProductStrategyType;
  * audio policy engine or Configurable Audio Policy (CAP) engine. The flavor
  * is determined only once, and it is done by checking presence of
  * capSpecificConfig during client initialization.
- *
- * {@hide}
  */
 @JavaDerive(equals=true, toString=true)
 @VintfStability

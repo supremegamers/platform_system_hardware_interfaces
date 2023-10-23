@@ -32,7 +32,6 @@
 // later when a module using the interface is updated, e.g., Mainline modules.
 
 package android.media.audio.common;
-/* @hide */
 @JavaDerive(equals=true, toString=true) @VintfStability
 parcelable MicrophoneDynamicInfo {
   @utf8InCpp String id;

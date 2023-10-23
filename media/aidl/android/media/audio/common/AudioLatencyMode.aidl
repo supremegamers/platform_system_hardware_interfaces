@@ -18,8 +18,6 @@ package android.media.audio.common;
 
 /**
  * The latency mode currently used by the spatializer mixer.
- *
- * {@hide}
  */
 @SuppressWarnings(value={"redundant-name"}) // for *_AUDIO_*
 @Backing(type="byte")
