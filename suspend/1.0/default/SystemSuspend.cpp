@@ -73,7 +73,7 @@ static constexpr char kUnknownWakeup[] = "unknown";
 // NOTE: If the name of this wakelock is changed then also update the name
 // in rootdir/init.zygote32.rc, rootdir/init.zygote64.rc, and
 // rootdir/init.zygote64_32.rc
-static constexpr char kZygoteKernelWakelock[] = "zygote_kwl";
+static constexpr char kZygoteKernelWakelock[] __attribute__((unused)) = "zygote_kwl";
 
 class PowerbtndThread {
    public:
@@ -85,6 +85,7 @@ class PowerbtndThread {
     void emitKey(int key_code, int val);
     void run();
     unique_fd mUinputFd;
+    bool emitNonWakeupKeys;
 };
 
 PowerbtndThread::PowerbtndThread()
@@ -95,11 +96,10 @@ PowerbtndThread::PowerbtndThread()
         return;
     }
 
+    emitNonWakeupKeys = true;
     if (GetBoolProperty("poweroff.disable_virtual_power_button", false)) {
         LOG(INFO) << "virtual power button events disabled by prop";
-        // unique fd cannot be closed manually, just leave it
-        //close(mUinputFd);
-        return;
+        emitNonWakeupKeys = false;
     }
 
     struct uinput_user_dev ud;
@@ -117,6 +117,9 @@ PowerbtndThread::PowerbtndThread()
 
 void PowerbtndThread::sendKeyPower(bool longpress)
 {
+    if(!emitNonWakeupKeys){
+        return;
+    }
     emitKey(KEY_POWER, 1);
     if (longpress) sleep(2);
     emitKey(KEY_POWER, 0);
@@ -327,7 +330,11 @@ SystemSuspend::SystemSuspend(unique_fd wakeupCountFd, unique_fd stateFd, unique_
     }
 }
 
-bool SystemSuspend::enableAutosuspend(const sp<IBinder>& token) {
+bool SystemSuspend::enableAutosuspend(const sp<IBinder>& token __attribute__((unused))) {
+    // force suspend when framework wants to suspend
+    forceSuspend();
+
+    /*
     auto tokensLock = std::lock_guard(mAutosuspendClientTokensLock);
     auto autosuspendLock = std::lock_guard(mAutosuspendLock);
 
@@ -353,6 +360,7 @@ bool SystemSuspend::enableAutosuspend(const sp<IBinder>& token) {
 
     mAutosuspendEnabled = true;
     initAutosuspendLocked();
+    */
     return true;
 }
 
@@ -413,6 +421,8 @@ bool SystemSuspend::forceSuspend() {
     if (!success) {
         PLOG(VERBOSE) << "error writing to /sys/power/state for forceSuspend";
     }
+    mPwrbtnd->sendKeyWakeup();
+
     return success;
 #else
     return false;
